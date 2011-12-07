@@ -1,0 +1,9 @@
+# data input file
+# Each data item can be no larger than 32 chars
+# format:
+#
+# SecurityID SettlementDate CouponRate MaturityDate Frequency YieldRate 
+#
+SBB_0001 20091015 5.0 20101015 2 5.1  
+SBB_0002 20091015 5.5 20111015 2 5.4  
+SBB_0003 20091015 6.0 20121015 2 6.1  
