@@ -63,7 +63,7 @@ $(LIB_UTIL_TARGET) : $(LIB_UTIL_OBJ)
 $(LIB_TARGET) : $(LIB_OBJ)
 	ar $(ARCHIVE_OPTIONS) $(LIB_TARGET) $(LIB_OBJ)
 $(MAINTARGET) : $(MAINOBJ) $(LIB_TARGET) $(LIB_UTIL_TARGET) $(SOCKET_HDR)
-	$(CC) $(LDFLAGS) $(MAINOBJ) $(LIB_UTIL_TARGET) $(LIB_TARGET) -lnsl -lsocket -lresolv -o $(MAINTARGET)
+	$(CC) $(LDFLAGS) $(MAINOBJ) $(LIB_UTIL_TARGET) $(LIB_TARGET) -lnsl -L /usr/lib/happycoders -lresolv -o $(MAINTARGET)
 #-lnsl -lsocket -lresolv
 all : util lib test
 test: $(MAINTARGET)

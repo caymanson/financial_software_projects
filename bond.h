@@ -17,12 +17,12 @@ class BondCalculatorInterface {
 		//
 		// return dvo1 of the bond
 		//
-		virtual double getDVO1()=0;
+		virtual double getDVO1(double shift=0)=0;
 
 		//
 		// return risk of the bond
 		//
-		virtual double getRisk()=0;
+		virtual double getRisk(double shift=0)=0;
 
 		//
 		// return Loss Given Default of the bond
@@ -32,12 +32,29 @@ class BondCalculatorInterface {
 		//
 		// return shifted price
 		//
-		virtual double getShiftMktVal(int shift)=0;
+		virtual double getShiftMktVal(double shift)=0;
 
 		//
 		// print the bond pricing info to stdout
 		//
 		virtual void show()=0;
+
+		//
+		// a simple method that makes getPrice() easier and make getDVO1() 
+		// available now
+		//
+		virtual double getPrice(double y)=0;
+	
+		//
+		// return the actural yield
+		//
+		virtual double getRate()=0;
+
+		//
+		// return the amount
+		//
+		virtual int getAmount()=0;
+
 };
 
 // Skeleton implemention of BondCalculatorInterface
@@ -53,18 +70,15 @@ class AbstractBondCalculatorInterface : public BondCalculatorInterface {
 		//
 		AbstractBondCalculatorInterface(InstrumentFields* bond, YieldCurve* yc=NULL);
 		double getPrice();
-		double getDVO1();
-		double getRisk();
+		double getDVO1(double shift=0);
+		double getRisk(double shift=0);
 		double getLGD();
-		double getShiftMktVal(int shift);
+		double getShiftMktVal(double shift);
 		void show();
-	protected:
-		
-		//
-		// a simple method that makes getPrice() easier and make getDVO1() 
-		// available now
-		//
+		double getRate(); 
+		int getAmount() {return bond->Amount;}
 		virtual double getPrice(double y)=0;
+	protected:
 
 		//
 		// the instrument to price with
@@ -77,16 +91,17 @@ class AbstractBondCalculatorInterface : public BondCalculatorInterface {
 		int period;
 
 		//
-		// the yield rate the bond has
+		// correspondent yield curve
 		//
-		double yield;
+		YieldCurve *yc;
+
+		int id;
 };
 
 // A simple implementation of Zero_Coupon_Bond
 class ZeroCouponBondCalculator : public AbstractBondCalculatorInterface {
 	public:
 		ZeroCouponBondCalculator(InstrumentFields* bond, YieldCurve* yc=NULL) : AbstractBondCalculatorInterface(bond, yc){}
-	protected:
 		double getPrice(double y);
 };
 
@@ -96,8 +111,9 @@ class CouponBearingBondCalculator : public AbstractBondCalculatorInterface {
 		CouponBearingBondCalculator(InstrumentFields* bond, YieldCurve* yc=NULL) : AbstractBondCalculatorInterface(bond, yc){
 			Coupon = bond->CouponRate;
 		}
-	protected:
 		double getPrice(double y);
+
+	protected:
 		
 		//
 		// Coupon_Bearing_Bond has a coupon rate

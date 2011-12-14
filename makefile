@@ -41,8 +41,11 @@ LIB_BOND_SRC_HDR = bond.h
 LIB_PORTFOLIO_SRC = portfolio.cc
 LIB_PORTFOLIO_SRC_HDR = portfolio.h
 #
-LIB_OBJ = $(LIB_DATE_SRC:.cc=.o) $(LIB_RATING_SRC:.cc=.o) $(LIB_YC_SRC:.cc=.o) $(LIB_BOND_SRC:.cc=.o) $(LIB_PORTFOLIO_SRC:.cc=.o)
-$(LIB_OBJ) :  $(LIB_RATING_SRC_HDR) $(LIB_YC_SRC_HDR) $(LIB_BOND_SRC_HDR) $(LIB_PORTFOLIO_SRC_HDR)
+LIB_VAR_SRC = vargenerator.cc
+LIB_VAR_SRC_HDR = vargenerator.h
+#
+LIB_OBJ = $(LIB_DATE_SRC:.cc=.o) $(LIB_RATING_SRC:.cc=.o) $(LIB_YC_SRC:.cc=.o) $(LIB_BOND_SRC:.cc=.o) $(LIB_PORTFOLIO_SRC:.cc=.o) $(LIB_VAR_SRC:.cc=.o)
+$(LIB_OBJ) :  $(LIB_RATING_SRC_HDR) $(LIB_YC_SRC_HDR) $(LIB_BOND_SRC_HDR) $(LIB_PORTFOLIO_SRC_HDR) $(LIB_VAR_SRC_HDR)
 LIB_TARGET = lib.a
 #
 SOCKET_HDR = sbb_socket.h
@@ -60,7 +63,7 @@ $(LIB_UTIL_TARGET) : $(LIB_UTIL_OBJ)
 $(LIB_TARGET) : $(LIB_OBJ)
 	ar $(ARCHIVE_OPTIONS) $(LIB_TARGET) $(LIB_OBJ)
 $(MAINTARGET) : $(MAINOBJ) $(LIB_TARGET) $(LIB_UTIL_TARGET) $(SOCKET_HDR)
-	$(CC) $(LDFLAGS) $(MAINOBJ) $(LIB_UTIL_TARGET) $(LIB_TARGET) -lnsl -lsocket -lresolv -o $(MAINTARGET)
+	$(CC) $(LDFLAGS) $(MAINOBJ) $(LIB_UTIL_TARGET) $(LIB_TARGET) -lnsl -L /usr/lib/happycoders -lresolv -o $(MAINTARGET)
 #-lnsl -lsocket -lresolv
 all : util lib test
 test: $(MAINTARGET)

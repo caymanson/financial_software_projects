@@ -53,6 +53,8 @@ class InstrumentFields {
 		int Amount;
 };
 
+
+
 // simple class for interfacing with data file that contains instrument desriptive data 
 // (and yield)
 class InstrumentInputFile {
@@ -103,47 +105,48 @@ class InstrumentInputFile {
 		InstrumentInputFile();
 };
 
-//instrument_fields with 4 additional fields to associate with new tradingbook.txt
-class Expanded_instrument_fields: public InstrumentFields{
+/////////////////////////IO for read historical file//////////////////////////////
+// wide open class for loading data per instrument
+class HistoricalFields {
 public:
-	Expanded_instrument_fields():InstrumentFields(){
-		Price = 0;
-		DV01 = 0;
-		Risk = 0;
-		LGD = 0;
+	HistoricalFields(){
+		Date = 0;
+		RateType[0]=0;
+		RateValue = 0;
+		BmkTicker[0]=0;
 	} 
-	~Expanded_instrument_fields() {};
+	~HistoricalFields() {};
 
-	void show()
-	{
-		InstrumentFields::show();
-		printf("Price: %.3f DV01: %.3f Risk: %.3f LGD: %.3f",
-			Price,
-			DV01,
-			Risk,
-			LGD);
-
+	void show(){
+		printf("Date: %d RateType: %s RateValue: %.3f BenchmarkTicker: %s \n",
+			Date,RateType,RateValue,BmkTicker);
 	}
-	double Price;
-	double DV01;
-	double Risk;
-	double LGD;
+
+	static double getRate(HistoricalFields* record, HistoricalFields* bmk) {
+		return bmk->RateValue+record->RateValue/100;
+	}
+
+	int	Date;
+	char RateType[RATETYPE_LENGTH];
+	double RateValue;
+	char BmkTicker[TICKER_LENGTH];
 };
 
-class Expanded_instrument_input_file: public InstrumentInputFile{
+
+class HistoricalInputFile {
 public:
-	Expanded_instrument_input_file(const char* filename):InstrumentInputFile(filename){}
-	~Expanded_instrument_input_file(){}
+	HistoricalInputFile(const char* filename);
+	~HistoricalInputFile();
 
 	//
-	// once his object is constructed (and the file is open), returns number of items in it
+	// once this object is constructed (and the file is open), returns number of items in it
 	//
 	int get_record_count();
 
 	//
 	// returns a heap allocated array of file contents
 	//
-	Expanded_instrument_fields* get_records(int& length);
+	HistoricalFields* get_records(int& length);
 
 	//
 	// As a convenience to the caller memory is allocated inside this class
@@ -151,23 +154,28 @@ public:
 	//
 	void free_records();
 
+protected:
+	FILE* _file;
+	char _line_buf[LINE_BUFFER_LENGTH];
+
+
 private:
-	Expanded_instrument_fields *_fields_array;
+	HistoricalFields *_fields_array;
 	//
 	// prevent copying
 	// 
-	Expanded_instrument_input_file (const Expanded_instrument_input_file &);
+	HistoricalInputFile (const HistoricalInputFile &);
 
 	//
 	// prevent assignment
 	//
-	Expanded_instrument_input_file & operator= (const Expanded_instrument_input_file &);
+	HistoricalInputFile & operator= (const HistoricalInputFile &);
 
 	//
 	// disable the default constructor
 	// force construction with filename param only...
 	//
-	Expanded_instrument_input_file();
+	HistoricalInputFile();
 };
 
 #endif

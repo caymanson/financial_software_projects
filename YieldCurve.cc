@@ -3,8 +3,9 @@
 #include "string.h"
 #include "bond.h"
 
-double
-YieldCurve::getYield(int term) {
+void
+YieldCurve::getYieldID(int term, int& idt, double& yield)
+{
 	SBB_date settleDtObj, matDtObj;
         int termd=0, termu=0, id=-1, iu=-1;
 
@@ -34,10 +35,36 @@ YieldCurve::getYield(int term) {
                 }
         }
 
-        if(id==-1)
-                return mtbs[iu].Rate;
-        else
-                return mtbs[id].Rate;
+        if(id==-1){
+                yield = mtbs[iu].Rate+shift_arr[iu];
+				idt = iu;
+		}
+        else{
+                yield = mtbs[id].Rate+shift_arr[id];
+				idt = id;
+		}
+}
+
+double
+YieldCurve::getYield(int term) {
+	int id;
+	double yield;
+	getYieldID(term,id,yield);
+	return yield;
+}
+
+int 
+YieldCurve::getID(int term) {
+	int id;
+	double yield;
+	getYieldID(term,id,yield);
+	return id;
+}
+
+double
+YieldCurve::getYieldUseID(int id)
+{
+	return mtbs[id].Rate+shift_arr[id];
 }
 
 double
@@ -52,6 +79,20 @@ YieldCurve::getDV01(int term){
 			InstrumentFields* instr = &mtbs[i];
 			CouponBearingBondCalculator CBB_cal_ptr(instr);
 			return CBB_cal_ptr.getDVO1();
+		}
+	}
+}
+
+void
+YieldCurve::set_shift_arr(double s1, double s2, double s3, double s4)
+{
+	for(int i=0;i<length;i++) {
+		switch (mtbs[i].SecurityID[1]) {
+			case '2': shift_arr[i]=s1;break;
+			case '5': shift_arr[i]=s2;break;
+			case '1': shift_arr[i]=s3;break;
+			case '3': shift_arr[i]=s4;break;
+			default: break;
 		}
 	}
 }

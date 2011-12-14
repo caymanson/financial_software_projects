@@ -6,18 +6,21 @@ echo "calling user is: \"`id -un`\" at: `date`"
 
 EXECUTABLE=./testdriver
 ERROR_LOGFILE=error_logfile
-DATA_INPUT_FILE="./midterm.txt"
-DATA_INPUT_FILE="tradingbook.txt"
+
+TRADINGBOOK_OPENING="tradingbook_opening.txt"
+TRADINGBOOK_CLOSING="tradingbook_closing.txt"
 
 YC_INPUT_FILE="yieldcurve.txt"
 
-echo "passing param: $DATA_INPUT_FILE $YC_INPUT_FILE executable: $EXECUTABLE" 
+# HISTORICAL_FILES_DIR = "var/"
+
+echo "passing param: $TRADINGBOOK_OPENING $TRADINGBOOK_CLOSING $YC_INPUT_FILE executable: $EXECUTABLE" 
 echo
 
 #SBB_DEBUG=1; export SBB_DEBUG
 
 echo "======= spawning executable ======="
-$EXECUTABLE  $DATA_INPUT_FILE  $YC_INPUT_FILE  2> $ERROR_LOGFILE >&1
+$EXECUTABLE  $TRADINGBOOK_OPENING $TRADINGBOOK_CLOSING  $YC_INPUT_FILE "./var/" 2> $ERROR_LOGFILE >&1
 # unix shell built in environment variable for return code is $?
 # standard is to return 0 if successful, positive otherwise
 ret=$?

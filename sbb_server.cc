@@ -13,39 +13,112 @@
 #include "sbb_socket.h"
 #include "SBB_date.h"
 #include "YieldCurve.h"
+#include "portfolio.h"
 #include "bond.h"
+#include "vargenerator.h"
 #include <vector>
 
 using namespace std;
 
-class MSGHandler{
-public:
-	static double cal_amount_t2(vector<Expanded_instrument_fields> &bucket,double dv01_2yr )
-	{
-		double bucket_risk=0;
-		for (unsigned int i=0; i<bucket.size(); i++)
-		{
-			bucket_risk+=bucket[i].Risk;
-		}
+char * all_calculation(char * msg, YieldCurve &yc, Portfolio &opening_port, Portfolio &closing_port, VarGenerator & openVarGen, VarGenerator &closingVarGen)
+{
+	double shift,yc_s1,yc_s2,yc_s3,yc_s4;
+	char * token;
 
-		cout<<"dv01:"<<dv01_2yr<<endl;
-		cout<<"bucket_risk:"<<bucket_risk<<endl;
-
-		return bucket_risk/dv01_2yr*100;
+	token = strtok(msg,",");
+	if(NULL == token){
+		fprintf(stderr,"cannot parse client msg: %s\n",msg);
+		exit(1);
 	}
+	shift = atof(token);
 
-	static double cal_Market_Value(BondCalculatorInterface** records_calc,int item_count, int shift)
-	{
-		double market_value = 0;
-		for (int i=0; i< item_count; i++)
-		{
-			market_value += records_calc[i]->getShiftMktVal(shift);
-			//cout<<i<<": shift:"<<shift<<" shiftedMV:"<<records_calc[i]->getShiftMktVal(shift)<<endl;
-		}
-		return market_value;
+	token = strtok(NULL,",");
+	if(NULL == token){
+		fprintf(stderr,"cannot parse client msg: %s\n",msg);
+		exit(1);
+	}	
+	yc_s1 = atof(token);
+
+	token = strtok(NULL,",");
+	if(NULL == token){
+		fprintf(stderr,"cannot parse client msg: %s\n",msg);
+		exit(1);
+	}		
+	yc_s2 = atof(token);
+
+	token = strtok(NULL,",");
+	if(NULL == token){
+		fprintf(stderr,"cannot parse client msg: %s\n",msg);
+		exit(1);
 	}
-};
+	yc_s3 = atof(token);
 
+	token = strtok(NULL,",");
+	if(NULL == token){
+		fprintf(stderr,"cannot parse client msg: %s\n",msg);
+		exit(1);
+	}
+	yc_s4 = atof(token);
+	
+	//initialize yc to 0, get original statistics
+	yc.set_shift_arr(0,0,0,0);
+
+	double dv01_2yr = yc.getDV01(2);
+	double yc2,yc5,yc10,yc30;
+	yc2 = yc.getYield(1);
+	yc5 = yc.getYield(4);
+	yc10 = yc.getYield(9);
+	yc30 = yc.getYield(29);
+	//before shift
+	double R2,M2,H2,R5,M5,H5,R10,M10,H10,R30,M30,H30;
+	H2 = closing_port.cal_2yr_hedge_amount(closing_port.bucket0_2,R2,dv01_2yr,0);
+	M2 = closing_port.cal_bucket_mktval(closing_port.bucket0_2,0);
+	H5 = closing_port.cal_2yr_hedge_amount(closing_port.bucket2_5,R5,dv01_2yr,0);
+	M5 = closing_port.cal_bucket_mktval(closing_port.bucket2_5,0);
+	H10 = closing_port.cal_2yr_hedge_amount(closing_port.bucket5_10,R10,dv01_2yr,0);
+	M10 = closing_port.cal_bucket_mktval(closing_port.bucket5_10,0);
+	H30 = closing_port.cal_2yr_hedge_amount(closing_port.bucket10_30,R30,dv01_2yr,0);
+	M30 = closing_port.cal_bucket_mktval(closing_port.bucket10_30,0);
+	
+	//set yc
+	yc.set_shift_arr(yc_s1,yc_s2,yc_s3,yc_s4);
+
+	//after shift
+	dv01_2yr = yc.getDV01(2);
+	double _R2,_M2,_H2,_R5,_M5,_H5,_R10,_M10,_H10,_R30,_M30,_H30;
+	_H2 = closing_port.cal_2yr_hedge_amount(closing_port.bucket0_2,_R2,dv01_2yr,shift);
+	_M2 = closing_port.cal_bucket_mktval(closing_port.bucket0_2,shift);
+	_H5 = closing_port.cal_2yr_hedge_amount(closing_port.bucket2_5,_R5,dv01_2yr,shift);
+	_M5 = closing_port.cal_bucket_mktval(closing_port.bucket2_5,shift);
+	_H10 = closing_port.cal_2yr_hedge_amount(closing_port.bucket5_10,_R10,dv01_2yr,shift);
+	_M10 = closing_port.cal_bucket_mktval(closing_port.bucket5_10,shift);
+	_H30 = closing_port.cal_2yr_hedge_amount(closing_port.bucket10_30,_R30,dv01_2yr,shift);
+	_M30 = closing_port.cal_bucket_mktval(closing_port.bucket10_30,shift);
+
+	char *buffer= new char[8192];
+	int n = sprintf(buffer,"closing_position,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f;2yr_hedge,%.3f,%.3f,%.3f,%.3f;shifted_position,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f;shifted_2yr_hedge,%.3f,%.3f,%.3f,%.3f;Yield_Curve,%.3f,%.3f,%.3f,%.3f;",R2,M2,R5,M5,R10,M10,R30,M30,
+			H2,H5,H10,H30,
+			_R2,_M2,_R5,_M5,_R10,_M10,_R30,_M30,
+			_H2,_H5,_H10,_H30,
+			yc2,yc5,yc10,yc30	
+		);
+	char * dailyChgStr = Portfolio::DailyChangeByIssuer(&opening_port,&closing_port,shift);
+	strcat(buffer,dailyChgStr);
+	
+
+	//printf("buffer before varstr:%s\n",buffer);
+	
+	char * varStr = VarGenerator::DailyChangeByIssuer(&openVarGen,&closingVarGen,shift);
+
+	//printf("varStr:%s\n",varStr);
+
+	strcat(buffer,varStr);
+	delete [] varStr;
+	delete [] dailyChgStr;
+
+
+	return buffer;
+}
 
 
 
@@ -57,122 +130,55 @@ int main(int argc, char ** argv)
 	double user_time;
 	double system_time;
 	
-	//IO
-	char data_input_file[128];
+	//IO files and directory
+	char tradingbook_opening[128];
+	char tradingbook_closing[128];
 	char yc_input_file[128];
-	strcpy(data_input_file, argv[1]);
-	strcpy(yc_input_file, argv[2]);
+	char historical_files_dir[128];
+	strcpy(tradingbook_opening, argv[1]);
+	strcpy(tradingbook_closing, argv[2]);
+	strcpy(yc_input_file, argv[3]);
+	strcpy(historical_files_dir, argv[4]); //directory for historical files
 	
+	//yield curve file
 	YieldCurve yc(yc_input_file);
-	double dv01_2yr = yc.getDV01(2);
 
-	/////////////////////////create long trading book//////////////////////////
-	FILE* oFile = fopen (data_input_file, "r");
-	FILE* nFile = fopen ("temp.txt", "w");
-
-	InstrumentInputFile dif(data_input_file);
+	//tradingbook_closing input 
+	InstrumentInputFile closing_file(tradingbook_closing);
 	int _bond_collection_size;
-	InstrumentFields* records = dif.get_records(_bond_collection_size);
-
-	BondCalculatorInterface** records_calc1 = new BondCalculatorInterface*[_bond_collection_size];
-
+	InstrumentFields* records = closing_file.get_records(_bond_collection_size);
+	BondCalculatorInterface** records_calc = new BondCalculatorInterface*[_bond_collection_size];
 	for(int i=0;i<_bond_collection_size;i++){
-
 		InstrumentFields* bond_record_ptr = &records[i];
 		BondCalculatorInterface* bond_calc_ptr;
-
 		if(0 == bond_record_ptr->CouponRate) 
 			bond_calc_ptr = new ZeroCouponBondCalculator( bond_record_ptr, &yc);
 		else
 			bond_calc_ptr = new CouponBearingBondCalculator( bond_record_ptr, &yc);
-
-		records_calc1[i] = bond_calc_ptr;
-	}
-	char _line_buf[LINE_BUFFER_LENGTH];
-	_line_buf[0]=' ';
-	int count = 0;
-	while(fgets(_line_buf,LINE_BUFFER_LENGTH,oFile)) {
-
-		if('#' == _line_buf[0]) { 
-			fprintf(nFile,_line_buf);
-			continue;
-		}
-
-		fwrite(_line_buf,strlen(_line_buf)-1,1,nFile);
-		fprintf(nFile," %.3f %.3f %.3f %.3f\n",
-			records_calc1[count]->getPrice(),
-			records_calc1[count]->getDVO1(),
-			records_calc1[count]->getRisk(),
-			records_calc1[count]->getLGD());
-
-		count++;
-	}
-
-	for (int i =0; i< _bond_collection_size; i++)
-	{
-		delete records_calc1[i];
-	}
-	delete [] records_calc1;
-	dif.free_records();
-	fclose(oFile);
-	fclose(nFile);
-
-	if(remove(data_input_file) == -1)
-		fprintf(stderr,"Could not delete %s\n",data_input_file);
-	else 
-		rename("temp.txt",data_input_file);	
-
-	/////////////////////////////////create long trading book ends//////////////////////
-
-
-	Expanded_instrument_input_file tradingbook_input(data_input_file);
-
-	int item_count=0;
-	Expanded_instrument_fields * tradingbook_array;
-	tradingbook_array = tradingbook_input.get_records(item_count);
-
-	//define 4 buckets
-	vector<Expanded_instrument_fields> bucket0_2;
-	vector<Expanded_instrument_fields> bucket2_5;
-	vector<Expanded_instrument_fields> bucket5_10;
-	vector<Expanded_instrument_fields> bucket10_30;
-
-	SBB_date from_dt;
-	SBB_date to_dt;
-	//trading book collection
-	BondCalculatorInterface** records_calc = new BondCalculatorInterface*[item_count];
-
-	for (int i=0;i<item_count;i++)
-	{
-		BondCalculatorInterface* bond_calc_ptr;
-		if(0 == tradingbook_array[i].CouponRate) 
-			bond_calc_ptr = new ZeroCouponBondCalculator( &tradingbook_array[i], &yc);
-		else
-			bond_calc_ptr = new CouponBearingBondCalculator( &tradingbook_array[i], &yc);
-		//add to collection
 		records_calc[i] = bond_calc_ptr;
-
-		from_dt.set_from_yyyymmdd((long)tradingbook_array[i].SettlementDate);
-		to_dt.set_from_yyyymmdd((long)tradingbook_array[i].MaturityDate);
-		int T = Term::getNumberOfPeriods(from_dt,to_dt,1);	//here unit of T is year
-		if (T>0 && T<=2)
-		{
-			bucket0_2.push_back(tradingbook_array[i]);
-		}
-		else if (T>2 && T<=5)
-		{
-			bucket2_5.push_back(tradingbook_array[i]);
-		}
-		else if (T>5 && T<=10)
-		{
-			bucket5_10.push_back(tradingbook_array[i]);
-		}
-		else if (T>10 && T<=30)
-		{
-			bucket10_30.push_back(tradingbook_array[i]);
-		}
+		//!!!!!!!
+		//records_calc[i]->show();
 	}
+	Portfolio closing_port(records, records_calc, _bond_collection_size);
+	VarGenerator varCal_c(historical_files_dir,records,records_calc,_bond_collection_size);
 
+	
+	//tradingbook_opening input
+	InstrumentInputFile opening_file(tradingbook_opening);
+	int _bond_collection_size_o;
+	InstrumentFields* records_o = opening_file.get_records(_bond_collection_size_o);
+	BondCalculatorInterface** records_calc_o = new BondCalculatorInterface*[_bond_collection_size_o];
+	for(int i=0;i<_bond_collection_size_o;i++){
+		InstrumentFields* bond_record_ptr = &records_o[i];
+		BondCalculatorInterface* bond_calc_ptr;
+		if(0 == bond_record_ptr->CouponRate) 
+			bond_calc_ptr = new ZeroCouponBondCalculator( bond_record_ptr, &yc);
+		else
+			bond_calc_ptr = new CouponBearingBondCalculator( bond_record_ptr, &yc);
+		records_calc_o[i] = bond_calc_ptr;
+	}
+	Portfolio opening_port(records_o, records_calc_o, _bond_collection_size_o);
+	VarGenerator varCal_o(historical_files_dir,records_o,records_calc_o,_bond_collection_size);
 	/* 
 	 * get an internet domain socket 
 	 */
@@ -265,27 +271,34 @@ int main(int argc, char ** argv)
 		/* 
 		 * ack back to the client 
 		 */
-
+	
 		timer_obj.start_clock();
+
+		char * result_str=all_calculation(msg, yc, opening_port, closing_port, varCal_o,varCal_c);
+		//printf("%s\n",result_str);
 		
-		//message handlers
-		double hedge_amount = MSGHandler::cal_amount_t2(bucket10_30,dv01_2yr);
-		double mktval_orginal = MSGHandler::cal_Market_Value(records_calc,item_count,0);
-		double mktval_100bp_up_change = MSGHandler::cal_Market_Value(records_calc,item_count,100) - mktval_orginal;
-		double mktval_100bp_dn_change= MSGHandler::cal_Market_Value(records_calc,item_count,-100) - mktval_orginal;
-		
-		timer_obj.end_clock();
 		timer_obj.end_clock(real_time,user_time,system_time);
 		
-		sprintf(msg,"%.3f %.3f %.3f %.3f %.3f %.3f",
-			hedge_amount,mktval_100bp_up_change,mktval_100bp_dn_change,
-			real_time,user_time,system_time);
+				
+
+		//printf("%s\n",msg);	
+		
+
+				
+				//strcpy(msg,result_str);
+		memset(msg,'\0',sizeof(msg));
+		sprintf(msg,"Server_Time,%.3f,%.3f,%.3f,%.3f;%s",real_time,user_time,system_time,user_time+system_time,
+				result_str);
 
 		//strcpy(msg," this is the server message response!");
 		if (send(sd_current, msg, strlen(msg), 0) == -1) {
 			fprintf(stderr,"SBB send(...) failed errno: %d exiting...\n", errno);
 			exit(1);
 		}
+
+		//delete allocated buffer.
+		delete [] result_str;
+
 	}
 
 	if( 0 == ret ) {
@@ -301,12 +314,19 @@ int main(int argc, char ** argv)
 	close(sd_current); 
 	close(sd);
 
-	for (int i =0; i< item_count; i++)
+	// free records
+	for (int i =0; i< _bond_collection_size; i++)
 	{
 		delete records_calc[i];
+		delete records_calc_o[i];
 	}
 	delete [] records_calc;
-	tradingbook_input.free_records();
+	delete [] records_calc_o;
+	opening_file.free_records();
+	closing_file.free_records();
+	
+	
+
 
 	return 0;
 }

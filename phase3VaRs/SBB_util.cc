@@ -3,6 +3,7 @@
 
 #include "SBB_util.h"
 #include "string.h"
+#include <inttypes.h>
 
 static long Ticks_per_second = sysconf(_SC_CLK_TCK); 
 
